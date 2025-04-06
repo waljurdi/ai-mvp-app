@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { Text, TextInput, View, Button, StyleSheet } from 'react-native';
 import axios from 'axios';
-import Constants from 'expo-constants';
 
 export default function Index() {
   const [message, setMessage] = useState('');
@@ -38,18 +37,3 @@ const styles = StyleSheet.create({
   input: { borderWidth: 1, padding: 10, marginBottom: 10 },
   response: { marginTop: 20, fontSize: 18 },
 });
-
-
-// export default function Index() {
-//   return (
-//     <View
-//       style={{
-//         flex: 1,
-//         justifyContent: "center",
-//         alignItems: "center",
-//       }}
-//     >
-//       <Text>Edit app/index.tsx to edit this screen!.</Text>
-//     </View>
-//   );
-// }
