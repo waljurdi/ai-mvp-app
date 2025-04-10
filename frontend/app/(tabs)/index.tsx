@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Text, TextInput, View, Button, StyleSheet, TouchableOpacity, ActivityIndicator, Vibration } from 'react-native';
 import axios from 'axios';
 import { Camera, CameraView } from 'expo-camera';
+import { Alert } from 'react-native';
 
 export default function Index() {
   const [message, setMessage] = useState('');
@@ -22,7 +23,7 @@ export default function Index() {
     })();
   }, []);
 
-  const handleBarCodeScanned = ({ data }) => {
+  const handleBarCodeScanned = async ({ data }) => {
     if (hasScannedRef.current) return; // Ignore if already scanned
   
     hasScannedRef.current = true; // Mark as scanned
@@ -33,7 +34,8 @@ export default function Index() {
   
     Vibration.vibrate(100);
   
-    sendBarcodeToBackend(data);
+    // sendBarcodeToBackend(data);
+    await fetchProductDetails(data); // Fetch product details from backend
   };
 
   const sendBarcodeToBackend = async (barcode) => {
@@ -53,6 +55,34 @@ export default function Index() {
         setResponse('');
         hasScannedRef.current = false; // ✅ Reset the ref so scanner is ready again
       }, 5000); // 1.5 second delay before ready for next scan
+    }
+  };
+
+  const fetchProductDetails = async (barcode) => {
+    try {
+      setLoading(true);
+      const res = await axios.get(`https://solid-space-tribble-v66v5x5wq9jwf7g9-8000.app.github.dev/product/${barcode}`);
+      if (res.data.error) {
+        Alert.alert('Product Not Found', 'The scanned product was not found in the database.');
+        setResponse('Product not found');
+      } else {
+        const { name, description } = res.data;
+        Alert.alert('Product Found', `Name: ${name}\nDescription: ${description}`);
+        setResponse(`Name: ${name}\nDescription: ${description}`);
+      }
+    } catch (err) {
+      console.error(err);
+      Alert.alert('Error', 'Failed to fetch product details from the backend.');
+      setResponse('Error fetching product details');
+    } finally {
+      setLoading(false);
+      // Auto-reset scanner after short delay
+      setTimeout(() => {
+        setScanned(false);
+        setBarcodeData('');
+        setResponse('');
+        hasScannedRef.current = false; // ✅ Reset the ref so scanner is ready again
+      }, 5000); // 5-second delay before ready for next scan
     }
   };
 
