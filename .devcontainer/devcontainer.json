@@ -1,10 +1,10 @@
 {
   "name": "AI MVP App",
-  "image": "mcr.microsoft.com/devcontainers/python:3.12-jammy",
+  "image": "ghcr.io/devcontainers/images/python:3.12-bullseye",
   "features": {
     "ghcr.io/devcontainers/features/common-utils:2": {},
     "ghcr.io/devcontainers/features/git:1": {},
     "ghcr.io/devcontainers/features/mongodb:1": {}
   },
-  "postCreateCommand": "pip install -r requirements.txt"
+  "postCreateCommand": "pip install -r backend/requirements.txt"
 }
