@@ -1,6 +1,8 @@
 {
   "name": "AI MVP App",
-  "image": "ghcr.io/devcontainers/images/python:3.12-bullseye",
+  "build": {
+    "dockerfile": "Dockerfile"
+  },
   "features": {
     "ghcr.io/devcontainers/features/common-utils:2": {},
     "ghcr.io/devcontainers/features/git:1": {},
