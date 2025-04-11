@@ -1,11 +1,1 @@
-{
-  "name": "AI MVP App",
-  "build": {
-    "dockerfile": "Dockerfile"
-  },
-  "features": {
-    "ghcr.io/devcontainers/features/common-utils:2": {},
-    "ghcr.io/devcontainers/features/git:1": {}
-  },
-  "postCreateCommand": "pip install -r requirements.txt"
-}
+{"image":"mcr.microsoft.com/devcontainers/universal:2"}

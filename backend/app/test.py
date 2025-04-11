@@ -1,20 +1,13 @@
-import os
-from pymongo import MongoClient
-from dotenv import load_dotenv
+from pymongo.mongo_client import MongoClient
+from pymongo.server_api import ServerApi
 
-# Load environment variables
-load_dotenv()
+uri = "mongodb+srv://waljurdi:4BuqAV8Qecy3AL5a@test-cluster.qfyps.mongodb.net/?appName=test-cluster"
 
-# Get the MongoDB connection URL and DB name from environment
-MONGODB_URL = os.getenv("MONGODB_URL")
-DATABASE_NAME = os.getenv("DATABASE_NAME")
-
-print("MongoDB URL:", MONGODB_URL)
-print("Database Name:", DATABASE_NAME)
-
-client = MongoClient(
-    MONGODB_URL,
-    ssl=True,
-    tlsAllowInvalidCertificates=True
-)
-print(client.list_database_names())
+# Create a new client and connect to the server
+client = MongoClient(uri, server_api=ServerApi('1'))
+# Send a ping to confirm a successful connection
+try:
+    client.admin.command('ping')
+    print("Pinged your deployment. You successfully connected to MongoDB!")
+except Exception as e:
+    print(e)
