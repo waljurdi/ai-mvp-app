@@ -41,7 +41,7 @@ export default function Index() {
   const sendBarcodeToBackend = async (barcode) => {
     try {
       setLoading(true);
-      const res = await axios.post('https://solid-space-tribble-v66v5x5wq9jwf7g9-8000.app.github.dev/echo', { message: barcode });
+      const res = await axios.post('https://congenial-eureka-x55w4j4xv7xr26gwr-8000.app.github.dev/echo', { message: barcode });
       setResponse(`Barcode sent: ${res.data.response}`);
     } catch (err) {
       console.error(err);
@@ -61,7 +61,7 @@ export default function Index() {
   const fetchProductDetails = async (barcode) => {
     try {
       setLoading(true);
-      const res = await axios.get(`https://solid-space-tribble-v66v5x5wq9jwf7g9-8000.app.github.dev/product/${barcode}`);
+      const res = await axios.get(`https://congenial-eureka-x55w4j4xv7xr26gwr-8000.app.github.dev/product/${barcode}`);
       if (res.data.error) {
         Alert.alert('Product Not Found', 'The scanned product was not found in the database.');
         setResponse('Product not found');
@@ -88,7 +88,7 @@ export default function Index() {
 
   const sendMessage = async () => {
     try {
-      const res = await axios.post('https://solid-space-tribble-v66v5x5wq9jwf7g9-8000.app.github.dev/echo', { message });
+      const res = await axios.post('https://congenial-eureka-x55w4j4xv7xr26gwr-8000.app.github.dev/echo', { message });
       setResponse(res.data.response);
     } catch (err) {
       console.error(err);
