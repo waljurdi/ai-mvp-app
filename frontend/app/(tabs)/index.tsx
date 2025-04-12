@@ -1,8 +1,8 @@
+import Constants from 'expo-constants';
 import React, { useState, useEffect, useRef } from 'react';
-import { Text, TextInput, View, Button, StyleSheet, TouchableOpacity, ActivityIndicator, Vibration } from 'react-native';
+import { Text, TextInput, View, Button, StyleSheet, ActivityIndicator, Vibration, Alert } from 'react-native';
 import axios from 'axios';
 import { Camera, CameraView } from 'expo-camera';
-import { Alert } from 'react-native';
 
 export default function Index() {
   const [message, setMessage] = useState('');
@@ -12,10 +12,9 @@ export default function Index() {
   const [barcodeData, setBarcodeData] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const cameraRef = useRef(null);
   const hasScannedRef = useRef(false);
+  const backendUrl = Constants.expoConfig.extra.backendUrl;
 
-  // Request camera permissions
   useEffect(() => {
     (async () => {
       const { status } = await Camera.requestCameraPermissionsAsync();
@@ -24,44 +23,21 @@ export default function Index() {
   }, []);
 
   const handleBarCodeScanned = async ({ data }) => {
-    if (hasScannedRef.current) return; // Ignore if already scanned
-  
-    hasScannedRef.current = true; // Mark as scanned
-  
+    if (hasScannedRef.current) return;
+
+    hasScannedRef.current = true;
     setScanned(true);
     setBarcodeData(data);
-    console.log('Scanned barcode:', data);
-  
     Vibration.vibrate(100);
-  
-    // sendBarcodeToBackend(data);
-    await fetchProductDetails(data); // Fetch product details from backend
-  };
 
-  const sendBarcodeToBackend = async (barcode) => {
-    try {
-      setLoading(true);
-      const res = await axios.post('https://congenial-eureka-x55w4j4xv7xr26gwr-8000.app.github.dev/echo', { message: barcode });
-      setResponse(`Barcode sent: ${res.data.response}`);
-    } catch (err) {
-      console.error(err);
-      setResponse('Error sending barcode to backend');
-    } finally {
-      setLoading(false);
-      // Auto-reset scanner after short delay
-      setTimeout(() => {
-        setScanned(false);
-        setBarcodeData('');
-        setResponse('');
-        hasScannedRef.current = false; // ✅ Reset the ref so scanner is ready again
-      }, 5000); // 1.5 second delay before ready for next scan
-    }
+    await fetchProductDetails(data);
   };
 
   const fetchProductDetails = async (barcode) => {
     try {
       setLoading(true);
-      const res = await axios.get(`https://congenial-eureka-x55w4j4xv7xr26gwr-8000.app.github.dev/product/${barcode}`);
+      const res = await axios.get(`${backendUrl}/product/${barcode}`);
+      
       if (res.data.error) {
         Alert.alert('Product Not Found', 'The scanned product was not found in the database.');
         setResponse('Product not found');
@@ -76,24 +52,25 @@ export default function Index() {
       setResponse('Error fetching product details');
     } finally {
       setLoading(false);
-      // Auto-reset scanner after short delay
-      setTimeout(() => {
-        setScanned(false);
-        setBarcodeData('');
-        setResponse('');
-        hasScannedRef.current = false; // ✅ Reset the ref so scanner is ready again
-      }, 5000); // 5-second delay before ready for next scan
+      setTimeout(resetScanner, 5000);
     }
   };
 
   const sendMessage = async () => {
     try {
-      const res = await axios.post('https://congenial-eureka-x55w4j4xv7xr26gwr-8000.app.github.dev/echo', { message });
+      const res = await axios.post(`${backendUrl}/echo`, { message });
       setResponse(res.data.response);
     } catch (err) {
       console.error(err);
       setResponse('Error connecting to backend');
     }
+  };
+
+  const resetScanner = () => {
+    setScanned(false);
+    setBarcodeData('');
+    setResponse('');
+    hasScannedRef.current = false;
   };
 
   if (hasPermission === null) {
@@ -128,7 +105,6 @@ export default function Index() {
             barCodeTypes: ['qr', 'code128', 'ean13', 'ean8'],
           }}
           onBarcodeScanned={scanned ? undefined : handleBarCodeScanned}
-          ref={cameraRef}
         />
       </View>
 
@@ -144,7 +120,7 @@ export default function Index() {
       )}
 
       {scanned && !loading && (
-        <Text style={styles.successText}>✅ Barcode sent successfully!</Text>
+        <Text style={styles.successText}>✅ Barcode processed successfully!</Text>
       )}
     </View>
   );
