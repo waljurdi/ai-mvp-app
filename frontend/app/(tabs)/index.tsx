@@ -1,19 +1,36 @@
-import Constants from 'expo-constants';
 import React, { useState, useEffect, useRef } from 'react';
-import { Text, TextInput, View, Button, StyleSheet, ActivityIndicator, Vibration, Alert } from 'react-native';
-import axios from 'axios';
+import { View, Text, StyleSheet, TouchableOpacity, Animated, Dimensions } from 'react-native';
 import { Camera, CameraView } from 'expo-camera';
+import { useNavigation } from 'expo-router';
+import { useLayoutEffect } from 'react';
+import axios from 'axios';
+import Constants from 'expo-constants';
+import * as Haptics from 'expo-haptics';
+import Toast from 'react-native-toast-message';
+import { StatusBar } from 'expo-status-bar';
+
+import Scanner from '../../components/Scanner';
+import LoadingOverlay from '../../components/LoadingOverlay';
+import theme from '../../constants/theme';
+
+const SCREEN_WIDTH = Dimensions.get('window').width;
 
 export default function Index() {
-  const [message, setMessage] = useState('');
-  const [response, setResponse] = useState('');
-  const [hasPermission, setHasPermission] = useState(null);
-  const [scanned, setScanned] = useState(false);
-  const [barcodeData, setBarcodeData] = useState('');
-  const [loading, setLoading] = useState(false);
+  const navigation = useNavigation();
 
+  useLayoutEffect(() => {
+    navigation.setOptions({ headerShown: false });
+  }, [navigation]);
+
+  const [mode, setMode] = useState<'menu' | 'scanner' | 'result'>('menu');
+  const [hasPermission, setHasPermission] = useState<boolean | null>(null);
+  const [scanned, setScanned] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [productInfo, setProductInfo] = useState<ProductInfo | null>(null);
   const hasScannedRef = useRef(false);
-  const backendUrl = Constants.expoConfig.extra.backendUrl;
+  const backendUrl = Constants.expoConfig?.extra?.backendUrl || '';
+
+  const translateAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     (async () => {
@@ -22,121 +39,250 @@ export default function Index() {
     })();
   }, []);
 
-  const handleBarCodeScanned = async ({ data }) => {
+  useEffect(() => {
+    Animated.timing(translateAnim, {
+      toValue: modeToValue(mode),
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
+  }, [mode]);
+
+  const modeToValue = (mode: 'menu' | 'scanner' | 'result') => {
+    switch (mode) {
+      case 'menu':
+        return 0;
+      case 'scanner':
+        return -SCREEN_WIDTH;
+      case 'result':
+        return -SCREEN_WIDTH * 2;
+      default:
+        return 0;
+    }
+  };
+
+  const handleBarCodeScanned = async ({ data }: { data: string }) => {
     if (hasScannedRef.current) return;
 
     hasScannedRef.current = true;
     setScanned(true);
-    setBarcodeData(data);
-    Vibration.vibrate(100);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+    if (!backendUrl) {
+      console.error('Backend URL is not set.');
+      Toast.show({ type: 'error', text1: 'Error', text2: 'Backend URL is missing.' });
+      setProductInfo({ error: true, message: 'Backend URL is missing.' });
+      setMode('result');
+      return;
+    }
 
     await fetchProductDetails(data);
   };
 
-  const fetchProductDetails = async (barcode) => {
+  interface ProductInfo {
+    name?: string;
+    description?: string;
+    error?: boolean;
+    message?: string;
+  }
+
+  const fetchProductDetails = async (barcode: string): Promise<void> => {
     try {
       setLoading(true);
-      const res = await axios.get(`${backendUrl}/product/${barcode}`);
-      
+      const res = await axios.get<{ error?: boolean; name?: string; description?: string }>(`${backendUrl}/product/${barcode}`);
+
       if (res.data.error) {
-        Alert.alert('Product Not Found', 'The scanned product was not found in the database.');
-        setResponse('Product not found');
+        Toast.show({ type: 'error', text1: 'Product Not Found', text2: 'The product is not in the database.' });
+        setProductInfo({ error: true, message: 'Product not found.' });
       } else {
         const { name, description } = res.data;
-        Alert.alert('Product Found', `Name: ${name}\nDescription: ${description}`);
-        setResponse(`Name: ${name}\nDescription: ${description}`);
+        Toast.show({ type: 'success', text1: 'Product Found', text2: `${name}: ${description}` });
+        setProductInfo({ name, description });
       }
+
+      setMode('result');
     } catch (err) {
       console.error(err);
-      Alert.alert('Error', 'Failed to fetch product details from the backend.');
-      setResponse('Error fetching product details');
+      Toast.show({ type: 'error', text1: 'Error', text2: 'Failed to fetch product details.' });
+      setProductInfo({ error: true, message: 'Error fetching product details.' });
+      setMode('result');
     } finally {
       setLoading(false);
-      setTimeout(resetScanner, 5000);
     }
   };
 
-  const sendMessage = async () => {
-    try {
-      const res = await axios.post(`${backendUrl}/echo`, { message });
-      setResponse(res.data.response);
-    } catch (err) {
-      console.error(err);
-      setResponse('Error connecting to backend');
-    }
-  };
-
-  const resetScanner = () => {
+  const resetFlow = () => {
     setScanned(false);
-    setBarcodeData('');
-    setResponse('');
+    setProductInfo(null);
     hasScannedRef.current = false;
+    setMode('menu');
+  };
+
+  const startScanner = () => {
+    setScanned(false);
+    hasScannedRef.current = false;
+    setLoading(false);
+    setMode('scanner');
   };
 
   if (hasPermission === null) {
-    return <Text>Requesting camera permission...</Text>;
+    return <LoadingOverlay message="Requesting camera permission..." />;
   }
 
   if (hasPermission === false) {
     return <Text>No access to camera. Please enable camera permission in settings.</Text>;
   }
 
+  const renderMenu = () => (
+    <View style={styles.centeredContainer}>
+      <Text style={styles.heading}>What would you like to do?</Text>
+
+      <TouchableOpacity
+        style={styles.button}
+        onPress={() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          startScanner();
+        }}
+      >
+        <Text style={styles.buttonText}>📷 Scan a Product</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={styles.button}
+        onPress={() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          Toast.show({ type: 'info', text1: 'Search feature not implemented yet!' });
+        }}
+      >
+        <Text style={styles.buttonText}>🔍 Search a Product</Text>
+      </TouchableOpacity>
+    </View>
+  );
+
+  const renderResult = () => (
+    <View style={styles.centeredContainer}>
+      {productInfo?.error ? (
+        <Text style={styles.errorText}>❌ {productInfo.message}</Text>
+      ) : (
+        <>
+          <Text style={styles.heading}>✅ Product Found!</Text>
+          {productInfo && <Text style={styles.resultText}>Name: {productInfo.name}</Text>}
+          {productInfo && <Text style={styles.resultText}>Description: {productInfo.description}</Text>}
+        </>
+      )}
+
+      <TouchableOpacity
+        style={styles.button}
+        onPress={() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          startScanner();
+        }}
+      >
+        <Text style={styles.buttonText}>📷 Scan Another Product</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={styles.secondaryButton}
+        onPress={() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          resetFlow();
+        }}
+      >
+        <Text style={styles.buttonText}>🏠 Back to Menu</Text>
+      </TouchableOpacity>
+    </View>
+  );
+
   return (
     <View style={styles.container}>
-      <Text style={styles.heading}>AI MVP + Barcode Scanner</Text>
+      <StatusBar style="dark" backgroundColor={theme.colors.background} />
 
-      <TextInput
-        style={styles.input}
-        placeholder="Type your message..."
-        onChangeText={setMessage}
-        value={message}
-      />
-      <Button title="Send to AI" onPress={sendMessage} />
-      <Text style={styles.response}>{response}</Text>
+      <Animated.View
+        style={[
+          styles.animatedContainer,
+          {
+            transform: [{ translateX: translateAnim }],
+          },
+        ]}
+      >
+        {/* Menu */}
+        <View style={styles.page}>{renderMenu()}</View>
 
-      <View style={styles.separator} />
-
-      <Text style={styles.subheading}>Barcode Scanner</Text>
-      <View style={styles.scannerContainer}>
-        <CameraView
-          style={styles.scanner}
-          facing="back"
-          barCodeScannerSettings={{
-            barCodeTypes: ['qr', 'code128', 'ean13', 'ean8'],
-          }}
-          onBarcodeScanned={scanned ? undefined : handleBarCodeScanned}
-        />
-      </View>
-
-      {loading && (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#007bff" />
-          <Text style={styles.loadingText}>Sending barcode...</Text>
+        {/* Scanner */}
+        <View style={styles.page}>
+          <Scanner
+            scanned={scanned}
+            handleBarCodeScanned={handleBarCodeScanned}
+            loading={loading}
+          />
+          {loading && <LoadingOverlay message="Checking product..." />}
         </View>
-      )}
 
-      {barcodeData && !loading && (
-        <Text style={styles.barcodeText}>Scanned Barcode: {barcodeData}</Text>
-      )}
-
-      {scanned && !loading && (
-        <Text style={styles.successText}>✅ Barcode processed successfully!</Text>
-      )}
+        {/* Result */}
+        <View style={styles.page}>{renderResult()}</View>
+      </Animated.View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 20, paddingTop: 50, backgroundColor: '#fff' },
-  heading: { fontSize: 24, fontWeight: 'bold', marginBottom: 20, textAlign: 'center' },
-  subheading: { fontSize: 20, marginVertical: 10, textAlign: 'center' },
-  input: { borderWidth: 1, borderColor: '#ccc', padding: 10, marginBottom: 10, borderRadius: 5 },
-  response: { marginTop: 10, fontSize: 16, color: 'green', textAlign: 'center' },
-  separator: { marginVertical: 20, borderBottomColor: '#ccc', borderBottomWidth: 1 },
-  scannerContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', marginBottom: 10 },
-  scanner: { width: '100%', height: 300 },
-  loadingContainer: { marginTop: 10, alignItems: 'center' },
-  loadingText: { marginTop: 5, fontSize: 16 },
-  barcodeText: { marginTop: 10, fontSize: 16, textAlign: 'center' },
-  successText: { marginTop: 10, fontSize: 16, color: 'green', textAlign: 'center' },
+  container: {
+    flex: 1,
+    backgroundColor: theme.colors.background,
+    overflow: 'hidden',
+  },
+  animatedContainer: {
+    flexDirection: 'row',
+    width: SCREEN_WIDTH * 3,
+    flex: 1,
+  },
+  page: {
+    width: SCREEN_WIDTH,
+    flex: 1,
+  },
+  centeredContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: theme.spacing.lg,
+  },
+  heading: {
+    fontSize: theme.fonts.heading,
+    fontWeight: 'bold',
+    marginBottom: theme.spacing.md,
+    textAlign: 'center',
+    color: theme.colors.text,
+  },
+  button: {
+    backgroundColor: theme.colors.primary,
+    padding: theme.spacing.md,
+    borderRadius: 12,
+    marginVertical: theme.spacing.sm,
+    width: '90%',
+    ...theme.shadow,
+  },
+  secondaryButton: {
+    backgroundColor: theme.colors.secondary,
+    padding: theme.spacing.md,
+    borderRadius: 12,
+    marginVertical: theme.spacing.sm,
+    width: '90%',
+    ...theme.shadow,
+  },
+  buttonText: {
+    color: theme.colors.textLight,
+    fontSize: theme.fonts.text,
+    textAlign: 'center',
+  },
+  resultText: {
+    fontSize: theme.fonts.subheading,
+    marginBottom: theme.spacing.sm,
+    textAlign: 'center',
+    color: theme.colors.text,
+  },
+  errorText: {
+    fontSize: theme.fonts.subheading,
+    marginBottom: theme.spacing.sm,
+    textAlign: 'center',
+    color: theme.colors.error,
+  },
 });
