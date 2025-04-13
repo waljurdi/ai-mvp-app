@@ -18,6 +18,10 @@ import { useNavigation } from 'expo-router';
 import Constants from 'expo-constants';
 import theme from '../constants/theme';
 
+export const screenOptions = {
+  title: 'Add Product',
+};
+
 export default function AddProduct() {
   const navigation = useNavigation();
   const backendUrl = Constants.expoConfig?.extra?.backendUrl || '';
