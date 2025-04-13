@@ -1,14 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Animated, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Animated, Dimensions, Image } from 'react-native';
 import { Camera, CameraView } from 'expo-camera';
-import { useNavigation } from 'expo-router';
+import { useNavigation, useRouter } from 'expo-router';
 import { useLayoutEffect } from 'react';
 import axios from 'axios';
 import Constants from 'expo-constants';
 import * as Haptics from 'expo-haptics';
 import Toast from 'react-native-toast-message';
 import { StatusBar } from 'expo-status-bar';
-
+import * as ImagePicker from 'expo-image-picker';
 import Scanner from '../../components/Scanner';
 import LoadingOverlay from '../../components/LoadingOverlay';
 import theme from '../../constants/theme';
@@ -79,8 +79,10 @@ export default function Index() {
   };
 
   interface ProductInfo {
-    name?: string;
-    description?: string;
+    _id?: string;
+    barcode?: string;
+    image_url?: string;
+    nutritional_facts?: Record<string, any>;
     error?: boolean;
     message?: string;
   }
@@ -88,22 +90,34 @@ export default function Index() {
   const fetchProductDetails = async (barcode: string): Promise<void> => {
     try {
       setLoading(true);
-      const res = await axios.get<{ error?: boolean; name?: string; description?: string }>(`${backendUrl}/product/${barcode}`);
-
-      if (res.data.error) {
-        Toast.show({ type: 'error', text1: 'Product Not Found', text2: 'The product is not in the database.' });
+      const res = await axios.get(`${backendUrl}/product/${barcode}`);
+  
+      const productData = res.data;
+      Toast.show({ type: 'success', text1: 'Product Found' });
+      setProductInfo(productData);
+      setMode('result');
+  
+    } catch (err: any) {
+      const status = err.response?.status;
+      const detail = err.response?.data?.detail;
+    
+      if (status === 404) {
+        Toast.show({
+          type: 'error',
+          text1: 'Product Not Found',
+          text2: detail || 'The product is not in the database.',
+        });
         setProductInfo({ error: true, message: 'Product not found.' });
       } else {
-        const { name, description } = res.data;
-        Toast.show({ type: 'success', text1: 'Product Found', text2: `${name}: ${description}` });
-        setProductInfo({ name, description });
+        console.error(err);
+        Toast.show({
+          type: 'error',
+          text1: 'Error',
+          text2: detail || 'Failed to fetch product details.',
+        });
+        setProductInfo({ error: true, message: 'Error fetching product details.' });
       }
-
-      setMode('result');
-    } catch (err) {
-      console.error(err);
-      Toast.show({ type: 'error', text1: 'Error', text2: 'Failed to fetch product details.' });
-      setProductInfo({ error: true, message: 'Error fetching product details.' });
+    
       setMode('result');
     } finally {
       setLoading(false);
@@ -155,6 +169,13 @@ export default function Index() {
       >
         <Text style={styles.buttonText}>🔍 Search a Product</Text>
       </TouchableOpacity>
+
+      <TouchableOpacity
+        style={styles.button}
+        onPress={() => navigation.navigate('add-product' as never)}
+      >
+        <Text style={styles.buttonText}>➕ Add Product</Text>
+      </TouchableOpacity>
     </View>
   );
 
@@ -165,11 +186,33 @@ export default function Index() {
       ) : (
         <>
           <Text style={styles.heading}>✅ Product Found!</Text>
-          {productInfo && <Text style={styles.resultText}>Name: {productInfo.name}</Text>}
-          {productInfo && <Text style={styles.resultText}>Description: {productInfo.description}</Text>}
+  
+          {productInfo?.image_url && (
+            <View style={{ marginBottom: theme.spacing.md }}>
+              <Text style={styles.resultText}>Image:</Text>
+              <Image
+                source={{ uri: productInfo.image_url }}
+                style={{ width: 200, height: 200, borderRadius: 8 }}
+                resizeMode="contain"
+              />
+            </View>
+          )}
+  
+          <Text style={styles.resultText}>Barcode: {productInfo?.barcode}</Text>
+  
+          {productInfo?.nutritional_facts && (
+            <>
+              <Text style={styles.resultText}>Nutrition Facts:</Text>
+              {Object.entries(productInfo.nutritional_facts).map(([key, value]) => (
+                <Text key={key} style={styles.resultText}>
+                  {key}: {String(value)}
+                </Text>
+              ))}
+            </>
+          )}
         </>
       )}
-
+  
       <TouchableOpacity
         style={styles.button}
         onPress={() => {
@@ -179,7 +222,7 @@ export default function Index() {
       >
         <Text style={styles.buttonText}>📷 Scan Another Product</Text>
       </TouchableOpacity>
-
+  
       <TouchableOpacity
         style={styles.secondaryButton}
         onPress={() => {
@@ -191,6 +234,7 @@ export default function Index() {
       </TouchableOpacity>
     </View>
   );
+  
 
   return (
     <View style={styles.container}>
@@ -213,6 +257,10 @@ export default function Index() {
             scanned={scanned}
             handleBarCodeScanned={handleBarCodeScanned}
             loading={loading}
+            goBack={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              resetFlow();
+            }}
           />
           {loading && <LoadingOverlay message="Checking product..." />}
         </View>
