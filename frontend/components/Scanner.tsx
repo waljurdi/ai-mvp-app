@@ -108,11 +108,11 @@ export default function Scanner({ scanned, handleBarCodeScanned, loading, goBack
       </CameraView>
 
       {/* Back button */}
-      <View style={styles.topBar}>
-      <TouchableOpacity onPress={goBack} style={styles.backButton}>
-        <Text style={styles.backButtonText}>← Back</Text>
-      </TouchableOpacity>
-    </View>
+      {/* <View style={styles.topBar}>
+        <TouchableOpacity onPress={goBack} style={styles.backButton}>
+          <Text style={styles.backButtonText}>← Back</Text>
+        </TouchableOpacity>
+      </View> */}
     </View>
   );
 }
