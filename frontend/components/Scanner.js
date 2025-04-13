@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, Animated, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Animated, Dimensions } from 'react-native';
 import { CameraView } from 'expo-camera';
 import theme from '../constants/theme';
 
@@ -9,7 +9,7 @@ const SIDE_WIDTH = (width - FRAME_SIZE) / 2;
 const CORNER_SIZE = 30;
 const LINE_THICKNESS = 4;
 
-export default function Scanner({ scanned, handleBarCodeScanned, loading }) {
+export default function Scanner({ scanned, handleBarCodeScanned, loading, goBack }) {
   const scanLineAnim = useRef(new Animated.Value(0)).current;
   const flashAnim = useRef(new Animated.Value(0)).current;
   const [showFlash, setShowFlash] = useState(false);
@@ -106,6 +106,13 @@ export default function Scanner({ scanned, handleBarCodeScanned, loading }) {
           {loading && <ActivityIndicator size="large" color={theme.colors.textLight} style={styles.loadingIndicator} />}
         </View>
       </CameraView>
+
+      {/* Back button */}
+      <View style={styles.topBar}>
+      <TouchableOpacity onPress={goBack} style={styles.backButton}>
+        <Text style={styles.backButtonText}>← Back</Text>
+      </TouchableOpacity>
+    </View>
     </View>
   );
 }
@@ -200,4 +207,25 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     backgroundColor: theme.colors.textLight,
   },
+  topBar: {
+    position: 'absolute',
+    top: 40,
+    left: 20,
+    right: 20,
+    flexDirection: 'row',
+    justifyContent: 'flex-start',
+    alignItems: 'center',
+    zIndex: 10,
+  },
+  backButton: {
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+  },
+  backButtonText: {
+    color: theme.colors.textLight,
+    fontSize: 16,
+  },
+  
 });

@@ -3,3 +3,6 @@ uvicorn
 motor
 python-dotenv
 pymongo[srv]
+boto3
+python-multipart
+requests
