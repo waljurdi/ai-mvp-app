@@ -9,7 +9,7 @@ export default function RootLayout() {
         <Stack.Screen name="(tabs)/index" options={{ title: 'Home' }} />
         <Stack.Screen name="add-product" options={{ title: 'Add Product' }} />
         <Stack.Screen name="view-product" options={{ title: 'View Product' }} />
-        <Stack.Screen name="scanner" options={{ title: 'Scan Product' }} />
+        <Stack.Screen name="scanner" options={{ presentation: 'modal', headerShown: false }} />
       </Stack>
       <Toast position="top" visibilityTime={3000} />
     </GestureHandlerRootView>

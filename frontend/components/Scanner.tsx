@@ -106,13 +106,6 @@ export default function Scanner({ scanned, handleBarCodeScanned, loading, goBack
           {loading && <ActivityIndicator size="large" color={theme.colors.textLight} style={styles.loadingIndicator} />}
         </View>
       </CameraView>
-
-      {/* Back button */}
-      {/* <View style={styles.topBar}>
-        <TouchableOpacity onPress={goBack} style={styles.backButton}>
-          <Text style={styles.backButtonText}>← Back</Text>
-        </TouchableOpacity>
-      </View> */}
     </View>
   );
 }

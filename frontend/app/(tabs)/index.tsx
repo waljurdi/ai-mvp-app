@@ -1,5 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  ScrollView,
+  Dimensions,
+} from 'react-native';
 import { Camera } from 'expo-camera';
 import { useNavigation } from 'expo-router';
 import * as Haptics from 'expo-haptics';
@@ -24,80 +31,106 @@ export default function Index() {
   }
 
   if (hasPermission === false) {
-    return <Text>No access to camera. Please enable camera permission in settings.</Text>;
+    return (
+      <View style={styles.centered}>
+        <Text style={styles.noAccessText}>
+          No access to camera. Please enable camera permission in settings.
+        </Text>
+      </View>
+    );
   }
 
-  const renderMenu = () => (
-    <View style={styles.centeredContainer}>
-      <Text style={styles.heading}>What would you like to do?</Text>
+  const handlePress = (callback: () => void) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    callback();
+  };
+
+  return (
+    <ScrollView contentContainerStyle={styles.container}>
+      <StatusBar style="dark" backgroundColor={theme.colors.background} />
+
+      <Text style={styles.title}>Welcome 👋</Text>
+      <Text style={styles.subtitle}>What would you like to do today?</Text>
 
       <TouchableOpacity
         style={styles.button}
-        onPress={() => {
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-          navigation.navigate('scanner' as never);
-        }}
+        onPress={() => handlePress(() => navigation.navigate('scanner' as never))}
       >
         <Text style={styles.buttonText}>📷 Scan a Product</Text>
       </TouchableOpacity>
 
       <TouchableOpacity
         style={styles.button}
-        onPress={() => {
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-          Toast.show({ type: 'info', text1: 'Search feature not implemented yet!' });
-        }}
+        onPress={() =>
+          handlePress(() =>
+            Toast.show({
+              type: 'info',
+              text1: 'Coming Soon',
+              text2: 'Search feature is not implemented yet.',
+            })
+          )
+        }
       >
         <Text style={styles.buttonText}>🔍 Search a Product</Text>
       </TouchableOpacity>
 
       <TouchableOpacity
         style={styles.button}
-        onPress={() => navigation.navigate('add-product' as never)}
+        onPress={() => handlePress(() => navigation.navigate('add-product' as never))}
       >
-        <Text style={styles.buttonText}>➕ Add Product</Text>
+        <Text style={styles.buttonText}>➕ Add a New Product</Text>
       </TouchableOpacity>
-    </View>
-  );
-
-  return (
-    <View style={styles.container}>
-      <StatusBar style="dark" backgroundColor={theme.colors.background} />
-      {renderMenu()}
-    </View>
+    </ScrollView>
   );
 }
 
+const screenWidth = Dimensions.get('window').width;
+
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-    backgroundColor: theme.colors.background,
-    overflow: 'hidden',
-  },
-  centeredContainer: {
-    flex: 1,
+    flexGrow: 1,
     justifyContent: 'center',
     alignItems: 'center',
     padding: theme.spacing.lg,
+    backgroundColor: theme.colors.background,
   },
-  heading: {
-    fontSize: theme.fonts.heading,
-    fontWeight: 'bold',
-    marginBottom: theme.spacing.md,
-    textAlign: 'center',
+  centered: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: theme.colors.background,
+    padding: theme.spacing.lg,
+  },
+  noAccessText: {
+    fontSize: theme.fonts.text,
     color: theme.colors.text,
+    textAlign: 'center',
+  },
+  title: {
+    fontSize: theme.fonts.heading * 1.2,
+    fontWeight: 'bold',
+    color: theme.colors.text,
+    marginBottom: theme.spacing.sm,
+    textAlign: 'center',
+  },
+  subtitle: {
+    fontSize: theme.fonts.subheading,
+    color: theme.colors.text,
+    marginBottom: theme.spacing.lg,
+    textAlign: 'center',
   },
   button: {
     backgroundColor: theme.colors.primary,
-    padding: theme.spacing.md,
-    borderRadius: 12,
-    marginVertical: theme.spacing.sm,
-    width: '90%',
+    paddingVertical: theme.spacing.md,
+    paddingHorizontal: theme.spacing.lg,
+    borderRadius: 14,
+    marginBottom: theme.spacing.md,
+    width: screenWidth * 0.9,
+    alignItems: 'center',
     ...theme.shadow,
   },
   buttonText: {
-    color: theme.colors.textLight,
     fontSize: theme.fonts.text,
-    textAlign: 'center',
+    color: theme.colors.textLight,
   },
 });
