@@ -1,16 +1,18 @@
 import React, { useState, useRef } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { useNavigation } from 'expo-router';
+import { useRouter } from 'expo-router';
+import axios from 'axios';
 import * as Haptics from 'expo-haptics';
 import Toast from 'react-native-toast-message';
 import Constants from 'expo-constants';
-import axios from 'axios';
 import Scanner from '../components/Scanner';
 import LoadingOverlay from '../components/LoadingOverlay';
 import theme from '../constants/theme';
 
 export default function ScannerScreen() {
   const navigation = useNavigation();
+  const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [scanned, setScanned] = useState(false);
   const hasScannedRef = useRef(false);
@@ -35,7 +37,10 @@ export default function ScannerScreen() {
       const productData = res.data;
       Toast.show({ type: 'success', text1: 'Product Found' });
 
-      navigation.navigate('view-product' as never, { product: JSON.stringify(productData) });
+      router.replace({
+        pathname: '/view-product',
+        params: { product: JSON.stringify(productData) },
+      });
     } catch (err: any) {
       const status = err.response?.status;
       const detail = err.response?.data?.detail;

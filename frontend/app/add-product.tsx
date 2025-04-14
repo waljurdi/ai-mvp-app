@@ -10,6 +10,7 @@ import {
   TouchableWithoutFeedback,
   KeyboardAvoidingView,
   Platform,
+  ScrollView,
 } from 'react-native';
 import LoadingOverlay from '../components/LoadingOverlay';
 import * as ImagePicker from 'expo-image-picker';
@@ -17,10 +18,6 @@ import Toast from 'react-native-toast-message';
 import { useNavigation } from 'expo-router';
 import Constants from 'expo-constants';
 import theme from '../constants/theme';
-
-export const screenOptions = {
-  title: 'Add Product',
-};
 
 export default function AddProduct() {
   const navigation = useNavigation();
@@ -71,7 +68,7 @@ export default function AddProduct() {
         type: 'image/jpeg',
       } as any);
 
-      const response = await fetch(`${backendUrl}/upload-image`, {
+      const response = await fetch(`${backendUrl}/add-product`, {
         method: 'POST',
         headers: {
           'Content-Type': 'multipart/form-data',
@@ -79,18 +76,30 @@ export default function AddProduct() {
         body: formData,
       });
 
-      const data = await response.json();
+      const text = await response.text();
+      let data: any;
+      try {
+        data = JSON.parse(text);
+      } catch {
+        data = { detail: text };
+      }
 
       if (response.ok) {
         Toast.show({ type: 'success', text1: 'Product uploaded successfully!' });
         navigation.goBack();
       } else {
-        console.error(data);
-        Toast.show({ type: 'error', text1: 'Upload failed', text2: data.detail || 'Unknown error' });
+        Toast.show({
+          type: 'error',
+          text1: 'Upload failed',
+          text2: data.detail || 'Unknown error',
+        });
       }
     } catch (error: any) {
-      console.error(error);
-      Toast.show({ type: 'error', text1: 'Error uploading product', text2: error.message });
+      Toast.show({
+        type: 'error',
+        text1: 'Error uploading product',
+        text2: error.message,
+      });
     } finally {
       setUploading(false);
     }
@@ -102,21 +111,23 @@ export default function AddProduct() {
       style={{ flex: 1 }}
     >
       <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-        <View style={styles.container}>
-          <Text style={styles.heading}>Add a New Product</Text>
+        <ScrollView contentContainerStyle={styles.container}>
+          <Text style={styles.heading}>➕ Add a New Product</Text>
+          <Text style={styles.subheading}>Upload a photo of the nutrition label and barcode below.</Text>
 
           <TextInput
             style={styles.input}
-            placeholder="Enter product barcode"
+            placeholder="Enter barcode number"
             value={barcode}
             onChangeText={setBarcode}
             keyboardType="numeric"
             returnKeyType="done"
+            placeholderTextColor={theme.colors.placeholder}
           />
 
           <TouchableOpacity style={styles.imagePicker} onPress={handlePickImage}>
             <Text style={styles.buttonText}>
-              {imageUri ? '📸 Image Selected' : '🖼️ Select Product Image'}
+              {imageUri ? '📸 Change Image' : '🖼️ Select Product Image'}
             </Text>
           </TouchableOpacity>
 
@@ -124,17 +135,18 @@ export default function AddProduct() {
             <Image source={{ uri: imageUri }} style={styles.imagePreview} />
           )}
 
-          <TouchableOpacity style={styles.uploadButton} onPress={handleUpload} disabled={uploading}>
-            <Text style={styles.buttonText}>{uploading ? 'Uploading...' : '🚀 Upload Product'}</Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()} disabled={uploading}>
-            <Text style={styles.buttonText}>🔙 Back to Menu</Text>
+          <TouchableOpacity
+            style={[styles.uploadButton, uploading && { opacity: 0.7 }]}
+            onPress={handleUpload}
+            disabled={uploading}
+          >
+            <Text style={styles.buttonText}>
+              {uploading ? 'Uploading...' : '🚀 Upload Product'}
+            </Text>
           </TouchableOpacity>
 
-          {/* ✅ Loading overlay */}
           {uploading && <LoadingOverlay message="Uploading product..." />}
-        </View>
+        </ScrollView>
       </TouchableWithoutFeedback>
     </KeyboardAvoidingView>
   );
@@ -142,24 +154,31 @@ export default function AddProduct() {
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-    backgroundColor: theme.colors.background,
     padding: theme.spacing.lg,
-    justifyContent: 'center',
+    backgroundColor: theme.colors.background,
+    alignItems: 'center',
+    flexGrow: 1,
   },
   heading: {
-    fontSize: theme.fonts.heading,
+    fontSize: theme.fonts.heading * 1.2,
     fontWeight: 'bold',
-    marginBottom: theme.spacing.md,
-    textAlign: 'center',
     color: theme.colors.text,
+    marginBottom: theme.spacing.sm,
+    textAlign: 'center',
+  },
+  subheading: {
+    fontSize: theme.fonts.subheading,
+    color: theme.colors.text,
+    marginBottom: theme.spacing.lg,
+    textAlign: 'center',
   },
   input: {
     borderWidth: 1,
     borderColor: theme.colors.border,
-    borderRadius: 8,
+    borderRadius: 10,
     padding: theme.spacing.md,
     marginBottom: theme.spacing.md,
+    width: '100%',
     color: theme.colors.text,
   },
   imagePicker: {
@@ -167,6 +186,7 @@ const styles = StyleSheet.create({
     padding: theme.spacing.md,
     borderRadius: 12,
     marginBottom: theme.spacing.md,
+    width: '100%',
     alignItems: 'center',
     ...theme.shadow,
   },
@@ -175,6 +195,7 @@ const styles = StyleSheet.create({
     padding: theme.spacing.md,
     borderRadius: 12,
     marginBottom: theme.spacing.md,
+    width: '100%',
     alignItems: 'center',
     ...theme.shadow,
   },
@@ -182,6 +203,7 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.secondary,
     padding: theme.spacing.md,
     borderRadius: 12,
+    width: '100%',
     alignItems: 'center',
     ...theme.shadow,
   },
@@ -191,8 +213,9 @@ const styles = StyleSheet.create({
   },
   imagePreview: {
     width: '100%',
-    height: 200,
+    height: 250,
+    borderRadius: 12,
     marginBottom: theme.spacing.md,
-    borderRadius: 8,
+    resizeMode: 'cover',
   },
 });

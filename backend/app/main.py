@@ -4,6 +4,7 @@ import tempfile
 import json
 import base64
 import requests
+from pymongo.errors import DuplicateKeyError
 from botocore.exceptions import BotoCoreError, ClientError
 from fastapi import FastAPI, File, UploadFile, HTTPException, Form
 from pydantic import BaseModel
@@ -59,15 +60,6 @@ app.add_middleware(
 )
 
 
-class InputData(BaseModel):
-    message: str
-
-
-@app.post("/echo")
-def echo(data: InputData):
-    return {"response": f"AI says: {data.message}"}
-
-
 class Product(BaseModel):
     barcode: str
     name: str
@@ -80,6 +72,7 @@ async def get_product(barcode: str):
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
 
+    print(f"Found product: {product}")
     if "s3_key" in product:
         signed_url = s3_client.generate_presigned_url(
             ClientMethod='get_object',
@@ -90,45 +83,46 @@ async def get_product(barcode: str):
             ExpiresIn=3600
         )
         product["image_url"] = signed_url
+        print(f"Generated signed URL: {signed_url}")
 
     product["_id"] = str(product["_id"])  # Convert ObjectId to string for JSON
 
     return product
 
 
-@app.post("/upload-image")
+@app.post("/add-product")
 async def upload_image(
     barcode: str = Form(...),
     file: UploadFile = File(...),
 ):
     try:
-        # 1. Save temp image file
-        with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(file.filename)[1]) as tmp:
-            temp_image_path = tmp.name
-            content = await file.read()
-            tmp.write(content)
+        # ✅ Check if product already exists
+        existing_product = await products_collection.find_one({"barcode": barcode})
+        if existing_product:
+            raise HTTPException(status_code=400, detail="Product with this barcode already exists.")
 
-        # 2. Upload to S3
-        file_extension = os.path.splitext(file.filename)[1]
+        # ✅ Prepare S3 key
+        file_extension = os.path.splitext(file.filename)[1] or ".jpg"
         s3_key = f"products/{barcode}/{uuid4()}{file_extension}"
 
-        # Rewind file for upload
-        with open(temp_image_path, "rb") as upload_file:
-            s3_client.upload_fileobj(upload_file, S3_BUCKET, s3_key, ExtraArgs={"ContentType": file.content_type})
+        # ✅ Upload file directly from UploadFile to S3
+        try:
+            s3_client.upload_fileobj(
+                Fileobj=file.file,
+                Bucket=S3_BUCKET,
+                Key=s3_key,
+                ExtraArgs={"ContentType": file.content_type},
+            )
+        except (BotoCoreError, ClientError) as e:
+            print("S3 upload failed", e)
+            raise HTTPException(status_code=500, detail="Failed to upload to S3")
 
-        # Generate a presigned URL for the uploaded file
-        s3_url = s3_client.generate_presigned_url(
-            ClientMethod='get_object',
-            Params={
-                'Bucket': S3_BUCKET,
-                'Key': s3_key
-            },
-            ExpiresIn=3600  # URL valid for 1 hour
-        )
-
-        # 3. Encode image for OpenAI API
+        # ✅ Read file contents for OpenAI (we need to reset pointer first)
+        await file.seek(0)
+        content = await file.read()
         base64_image = base64.b64encode(content).decode('utf-8')
 
+        # ✅ Prepare OpenAI request
         headers = {
             "Content-Type": "application/json",
             "Authorization": f"Bearer {OPENAI_API_KEY}"
@@ -156,20 +150,25 @@ async def upload_image(
             "max_tokens": 1000
         }
 
-        openai_response = requests.post("https://api.openai.com/v1/chat/completions", headers=headers, json=payload)
+        openai_response = requests.post(
+            "https://api.openai.com/v1/chat/completions",
+            headers=headers,
+            json=payload
+        )
         openai_response.raise_for_status()
 
         openai_data = openai_response.json()
+
         try:
             structured_data = json.loads(openai_data['choices'][0]['message']['content'])
         except Exception as e:
             print("Failed to parse OpenAI response", e)
             structured_data = {"error": "Failed to parse OpenAI response", "raw": openai_data}
 
-        # 4. Store in MongoDB
+        # ✅ Store in MongoDB
         product_document = {
             "barcode": barcode,
-            "image_url": s3_url,
+            "s3_key": s3_key,
             "nutritional_facts": structured_data,
         }
 
@@ -178,13 +177,11 @@ async def upload_image(
         return {
             "message": "Product uploaded successfully",
             "product_id": str(result.inserted_id),
-            "image_url": s3_url,
             "nutritional_facts": structured_data,
         }
 
-    except (BotoCoreError, ClientError) as e:
-        print("S3 upload failed", e)
-        raise HTTPException(status_code=500, detail="Failed to upload to S3")
+    except HTTPException:
+        raise  # re-raise HTTP exceptions as is
 
     except requests.RequestException as e:
         print("OpenAI API error", e)
@@ -193,8 +190,3 @@ async def upload_image(
     except Exception as e:
         print("General error", e)
         raise HTTPException(status_code=500, detail="An error occurred during upload")
-
-    finally:
-        # Clean up the temporary file
-        if os.path.exists(temp_image_path):
-            os.remove(temp_image_path)
