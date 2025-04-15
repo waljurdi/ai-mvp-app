@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -18,12 +18,14 @@ import Toast from 'react-native-toast-message';
 import { useNavigation } from 'expo-router';
 import Constants from 'expo-constants';
 import theme from '../constants/theme';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 
 export default function AddProduct() {
+  const router = useRouter();
   const navigation = useNavigation();
   const backendUrl = Constants.expoConfig?.extra?.backendUrl || '';
-
-  const [barcode, setBarcode] = useState('');
+  const params = useLocalSearchParams();
+  const [barcode, setBarcode] = useState(params?.scannedBarcode ?? '');
   const [imageUri, setImageUri] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
 
@@ -46,7 +48,7 @@ export default function AddProduct() {
   };
 
   const handleUpload = async () => {
-    if (!barcode.trim()) {
+    if (typeof barcode !== 'string' || !barcode.trim()) {
       Toast.show({ type: 'error', text1: 'Please enter a barcode' });
       return;
     }
@@ -115,15 +117,28 @@ export default function AddProduct() {
           <Text style={styles.heading}>➕ Add a New Product</Text>
           <Text style={styles.subheading}>Upload a photo of the nutrition label and barcode below.</Text>
 
-          <TextInput
-            style={styles.input}
-            placeholder="Enter barcode number"
-            value={barcode}
-            onChangeText={setBarcode}
-            keyboardType="numeric"
-            returnKeyType="done"
-            placeholderTextColor={theme.colors.placeholder}
-          />
+          <View style={styles.barcodeInputWrapper}>
+            <TextInput
+              style={styles.barcodeInput}
+              placeholder="Enter barcode number"
+              value={barcode}
+              onChangeText={setBarcode}
+              keyboardType="numeric"
+              returnKeyType="done"
+              placeholderTextColor={theme.colors.placeholder}
+            />
+            <TouchableOpacity
+              onPress={() =>
+                router.push({
+                  pathname: '/(modals)/scan-barcode',
+                  params: { returnTo: '/add-product' },
+                })
+              }
+              style={styles.iconButton}
+            >
+              <Text style={styles.iconText}>📷</Text>
+            </TouchableOpacity>
+          </View>
 
           <TouchableOpacity style={styles.imagePicker} onPress={handlePickImage}>
             <Text style={styles.buttonText}>
@@ -218,4 +233,32 @@ const styles = StyleSheet.create({
     marginBottom: theme.spacing.md,
     resizeMode: 'cover',
   },
+  barcodeInputWrapper: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  borderWidth: 1,
+  borderColor: theme.colors.border,
+  borderRadius: 10,
+  marginBottom: theme.spacing.md,
+  width: '100%',
+  backgroundColor: theme.colors.inputBackground || theme.colors.background,
+},
+
+barcodeInput: {
+  flex: 1,
+  paddingVertical: theme.spacing.md,
+  paddingLeft: theme.spacing.md,
+  paddingRight: theme.spacing.sm, // avoid overlap with icon
+  color: theme.colors.text,
+},
+
+iconButton: {
+  paddingHorizontal: theme.spacing.sm,
+  paddingVertical: theme.spacing.sm,
+},
+
+iconText: {
+  fontSize: 20,
+  color: theme.colors.placeholder,
+},
 });

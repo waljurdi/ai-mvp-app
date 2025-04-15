@@ -1,6 +1,8 @@
+// Handles camera + visuals + animation
 import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Animated, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator, Animated, Dimensions } from 'react-native';
 import { CameraView } from 'expo-camera';
+import { supportedBarcodeTypes } from '../constants/barcodeTypes';
 import theme from '../constants/theme';
 
 const { width } = Dimensions.get('window');
@@ -59,9 +61,7 @@ export default function Scanner({ scanned, handleBarCodeScanned, loading, goBack
       <CameraView
         style={StyleSheet.absoluteFillObject}
         onBarcodeScanned={scanned || loading ? undefined : handleBarCodeScanned}
-        barcodeScannerSettings={{
-          barcodeTypes: ['ean13', 'ean8', 'upc_a', 'upc_e', 'code128', 'qr'],
-        }}
+        barcodeScannerSettings={{ barcodeTypes: supportedBarcodeTypes }}
       >
         {/* Flash animation */}
         {showFlash && (
@@ -200,25 +200,4 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     backgroundColor: theme.colors.textLight,
   },
-  topBar: {
-    position: 'absolute',
-    top: 40,
-    left: 20,
-    right: 20,
-    flexDirection: 'row',
-    justifyContent: 'flex-start',
-    alignItems: 'center',
-    zIndex: 10,
-  },
-  backButton: {
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-  },
-  backButtonText: {
-    color: theme.colors.textLight,
-    fontSize: 16,
-  },
-  
 });
