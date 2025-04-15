@@ -8,7 +8,7 @@ import {
   Dimensions,
 } from 'react-native';
 import { Camera } from 'expo-camera';
-import { useNavigation } from 'expo-router';
+import { useNavigation, useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import Toast from 'react-native-toast-message';
 import { StatusBar } from 'expo-status-bar';
@@ -16,6 +16,7 @@ import LoadingOverlay from '../../components/LoadingOverlay';
 import theme from '../../constants/theme';
 
 export default function Index() {
+  const router = useRouter();
   const navigation = useNavigation();
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
 
@@ -54,7 +55,7 @@ export default function Index() {
 
       <TouchableOpacity
         style={styles.button}
-        onPress={() => handlePress(() => navigation.navigate('scanner' as never))}
+        onPress={() => router.push('/(modals)/scanner')}
       >
         <Text style={styles.buttonText}>📷 Scan a Product</Text>
       </TouchableOpacity>
