@@ -1,10 +1,10 @@
 import os
 import boto3
-import tempfile
+import io
 import json
 import base64
 import requests
-from pymongo.errors import DuplicateKeyError
+from datetime import datetime, timezone
 from botocore.exceptions import BotoCoreError, ClientError
 from fastapi import FastAPI, File, UploadFile, HTTPException, Form
 from pydantic import BaseModel
@@ -105,10 +105,13 @@ async def upload_image(
         file_extension = os.path.splitext(file.filename)[1] or ".jpg"
         s3_key = f"products/{barcode}/{uuid4()}{file_extension}"
 
-        # ✅ Upload file directly from UploadFile to S3
+        # ✅ Read the file once into memory
+        file_content = await file.read()
+
+        # ✅ Upload to S3 from memory
         try:
             s3_client.upload_fileobj(
-                Fileobj=file.file,
+                Fileobj=io.BytesIO(file_content),
                 Bucket=S3_BUCKET,
                 Key=s3_key,
                 ExtraArgs={"ContentType": file.content_type},
@@ -116,6 +119,9 @@ async def upload_image(
         except (BotoCoreError, ClientError) as e:
             print("S3 upload failed", e)
             raise HTTPException(status_code=500, detail="Failed to upload to S3")
+
+        # ✅ Prepare base64 string for OpenAI
+        base64_image = base64.b64encode(file_content).decode('utf-8')
 
         # ✅ Read file contents for OpenAI (we need to reset pointer first)
         await file.seek(0)
@@ -128,6 +134,38 @@ async def upload_image(
             "Authorization": f"Bearer {OPENAI_API_KEY}"
         }
 
+        # Old prompt
+        # prompt_text = "Extract the nutritional facts from the image into a structured dictionary. Output only the structured data without any additional text, line breaks, or spaces."
+        # Prompt
+        prompt_text = (
+            "Extract the following from the product image and return as JSON:\n"
+            "- product_name (string): The name of the product\n"
+            "- brand (string): Brand name of the product\n"
+            "- country_of_origin (string): The country where the product is made\n"
+            "- nutritional_basis_unit (string): Specify whether the nutrition table is shown per '100g' or '100ml'. Output only '100g' or '100ml'.\n"
+            "- nutritional_facts (dict): Extract ONLY the values from the per 100g (or 100ml) column. Ignore any values listed per portion, serving, or unit. The keys are:\n"
+            "   - protein (string, in g)\n"
+            "   - sugar (string, in g)\n"
+            "   - energy (string, in kcal)\n"
+            "   - saturates (string, in g)\n"
+            "   - salt (string, in g)\n\n"
+            "Output only valid JSON. All values with units (like 'g', 'kcal') must be quoted as strings.\n\n"
+            "Example Output:\n"
+            "{\n"
+            "  \"product_name\": \"Example Product\",\n"
+            "  \"brand\": \"Example Brand\",\n"
+            "  \"country_of_origin\": \"Country\",\n"
+            "  \"nutritional_basis_unit\": \"100g\",\n"
+            "  \"nutritional_facts\": {\n"
+            "    \"protein\": \"3.2g\",\n"
+            "    \"sugar\": \"12.5g\",\n"
+            "    \"energy\": \"250kcal\",\n"
+            "    \"saturates\": \"1.1g\",\n"
+            "    \"salt\": \"0.6g\"\n"
+            "  }\n"
+            "}"
+        )
+
         payload = {
             "model": "gpt-4o-mini",
             "messages": [
@@ -136,7 +174,7 @@ async def upload_image(
                     "content": [
                         {
                             "type": "text",
-                            "text": "Extract the nutritional facts from the image into a structured dictionary. Output only the structured data without any additional text, line breaks, or spaces."
+                            "text": prompt_text
                         },
                         {
                             "type": "image_url",
@@ -155,21 +193,34 @@ async def upload_image(
             headers=headers,
             json=payload
         )
+        print("OpenAI response status code:", openai_response.status_code)
         openai_response.raise_for_status()
-
         openai_data = openai_response.json()
+        print("OpenAI response data:", openai_data)
 
+        # Check if OpenAI response is valid
         try:
-            structured_data = json.loads(openai_data['choices'][0]['message']['content'])
+            content = openai_data['choices'][0]['message']['content']
+            cleaned = extract_json_from_response(content)
+            structured_data = json.loads(cleaned)
         except Exception as e:
             print("Failed to parse OpenAI response", e)
             structured_data = {"error": "Failed to parse OpenAI response", "raw": openai_data}
 
-        # ✅ Store in MongoDB
         product_document = {
             "barcode": barcode,
             "s3_key": s3_key,
-            "nutritional_facts": structured_data,
+            "product_name": structured_data.get("product_name", ""),
+            "country_of_origin": structured_data.get("country_of_origin", ""),
+            "brand": structured_data.get("brand", ""),
+            "nutritional_facts": {
+                "per": structured_data.get("nutritional_basis_unit", "100g"),
+                **structured_data.get("nutritional_facts", {})
+            },
+            "validation_state": "pending",
+            "status": "pending",
+            "created_at": datetime.now(timezone.utc),
+            "updated_at": datetime.now(timezone.utc)
         }
 
         result = await products_collection.insert_one(product_document)
@@ -190,3 +241,15 @@ async def upload_image(
     except Exception as e:
         print("General error", e)
         raise HTTPException(status_code=500, detail="An error occurred during upload")
+
+
+def extract_json_from_response(content: str) -> str:
+    # Remove ```json and ``` if they exist
+    content = content.strip()
+    if content.startswith("```json"):
+        content = content[7:]
+    elif content.startswith("```"):
+        content = content[3:]
+    if content.endswith("```"):
+        content = content[:-3]
+    return content.strip()
