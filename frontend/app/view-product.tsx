@@ -12,7 +12,6 @@ import theme from '../constants/theme';
 
 export default function ViewProduct() {
   const { product } = useLocalSearchParams();
-
   const parsedProduct = product ? JSON.parse(product as string) : null;
 
   if (!parsedProduct) {
@@ -27,28 +26,48 @@ export default function ViewProduct() {
     <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.heading}>📦 Product Details</Text>
 
-      {parsedProduct?.image_url && (
-        <Image
-          source={{ uri: parsedProduct.image_url }}
-          style={styles.image}
-          resizeMode="cover"
-        />
-      )}
-
-      <View style={styles.infoCard}>
-        <Text style={styles.label}>Barcode</Text>
-        <Text style={styles.value}>{parsedProduct.barcode}</Text>
+      <View style={styles.headerRow}>
+        {parsedProduct?.image_url && (
+          <Image
+            source={{ uri: parsedProduct.image_url }}
+            style={styles.smallImage}
+            resizeMode="cover"
+          />
+        )}
+        <View style={styles.productInfo}>
+          <Text style={styles.productName}>{parsedProduct.product_name}</Text>
+          <Text style={styles.productBrand}>{parsedProduct.brand}</Text>
+          <Text style={styles.barcodeText}>Barcode: {parsedProduct.barcode}</Text>
+        </View>
       </View>
 
       {parsedProduct?.nutritional_facts && (
         <View style={styles.infoCard}>
-          <Text style={styles.label}>Nutrition Facts</Text>
-          {Object.entries(parsedProduct.nutritional_facts).map(([key, value]) => (
-            <View key={key} style={styles.factRow}>
-              <Text style={styles.factKey}>{key}</Text>
-              <Text style={styles.factValue}>{String(value)}</Text>
-            </View>
-          ))}
+          <View style={styles.nutritionHeader}>
+            <Text style={styles.label}>Nutrition Facts</Text>
+            {parsedProduct.nutritional_facts.per && (
+              <Text style={styles.portionSizeText}>per {parsedProduct.nutritional_facts.per}</Text>
+            )}
+          </View>
+          {Object.entries(parsedProduct.nutritional_facts)
+            .filter(([key]) => key !== 'per')
+            .map(([key, value]) => (
+              <View key={key} style={styles.factRow}>
+                <Text style={styles.factKey}>{key}</Text>
+                <Text style={styles.factValue}>{String(value)}</Text>
+              </View>
+            ))}
+        </View>
+      )}
+
+      {/* Country of Origin Section */}
+      {parsedProduct.country_of_origin && (
+        <View style={styles.infoCard}>
+          <Text style={styles.label}>Other Details</Text>
+          <View style={styles.factRow}>
+            <Text style={styles.factKey}>Country of Origin</Text>
+            <Text style={styles.factValue}>{parsedProduct.country_of_origin}</Text>
+          </View>
         </View>
       )}
     </ScrollView>
@@ -77,11 +96,36 @@ const styles = StyleSheet.create({
     marginBottom: theme.spacing.md,
     textAlign: 'center',
   },
-  image: {
-    width: screenWidth * 0.8,
-    height: screenWidth * 0.8,
-    borderRadius: 12,
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: '100%',
     marginBottom: theme.spacing.lg,
+  },
+  smallImage: {
+    width: screenWidth * 0.3,
+    height: screenWidth * 0.3,
+    borderRadius: 8,
+    marginRight: theme.spacing.md,
+  },
+  productInfo: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  productName: {
+    fontSize: theme.fonts.subheading,
+    fontWeight: '600',
+    color: theme.colors.text,
+    marginBottom: 4,
+  },
+  productBrand: {
+    fontSize: theme.fonts.text,
+    color: theme.colors.text,
+    marginBottom: 4,
+  },
+  barcodeText: {
+    fontSize: 12,
+    color: theme.colors.textSecondary || '#666',
   },
   infoCard: {
     backgroundColor: theme.colors.card || '#fff',
@@ -112,5 +156,16 @@ const styles = StyleSheet.create({
   },
   factValue: {
     color: theme.colors.text,
+  },
+  nutritionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'baseline',
+    marginBottom: theme.spacing.sm,
+  },
+  portionSizeText: {
+    fontSize: 12,
+    fontStyle: 'italic',
+    color: theme.colors.textSecondary || '#666',
   },
 });
