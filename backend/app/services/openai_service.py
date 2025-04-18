@@ -14,7 +14,9 @@ async def analyze_image(image_bytes: bytes) -> dict:
     # prompt_text = "Extract the nutritional facts from the image into a structured dictionary. Output only the structured data without any additional text, line breaks, or spaces."
     # Prompt
     prompt_text = (
-        "Extract the following from the product image and return as JSON:\n"
+        "You will be shown an image. First, check if it contains a clear and readable nutritional facts table from a product packaging."
+        "If it does not, respond with: {\"error\": \"Image does not contain nutritional facts\"}. "
+        "If it does, extract the following from the image and return as JSON:\n"
         "- product_name (string): The name of the product\n"
         "- brand (string): Brand name of the product\n"
         "- country_of_origin (string): The country where the product is made\n"
@@ -43,7 +45,7 @@ async def analyze_image(image_bytes: bytes) -> dict:
     )
 
     payload = {
-        "model": "gpt-4o-mini",
+        "model": "gpt-4o",
         "messages": [
             {
                 "role": "user",
@@ -64,7 +66,7 @@ async def analyze_image(image_bytes: bytes) -> dict:
     # Log the payload for debugging
     logger.info("Sending image to OpenAI for analysis")
 
-    timeout = httpx.Timeout(30.0)  # 30 seconds
+    timeout = httpx.Timeout(45.0)  # 45 seconds
     try:
         async with httpx.AsyncClient(timeout=timeout) as client:
             response = await client.post(

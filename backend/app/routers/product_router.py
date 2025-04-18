@@ -41,6 +41,9 @@ async def upload_image(
     s3_key = await s3_service.upload_file(barcode, file.filename, file_content, file.content_type)
     structured_data = await openai_service.analyze_image(file_content)
 
+    if "error" in structured_data:
+        raise HTTPException(status_code=400, detail=structured_data["error"])
+
     product_doc = {
         "barcode": barcode,
         "s3_key": s3_key,
