@@ -1,9 +1,11 @@
 import boto3
 import io
-from botocore.exceptions import BotoCoreError, ClientError
+import os
 from app.config import settings
 from app.logger import logger
+from botocore.exceptions import BotoCoreError, ClientError
 from fastapi import HTTPException
+from uuid import uuid4
 
 s3_client = boto3.client(
     "s3",
@@ -21,11 +23,10 @@ def generate_presigned_url(key: str) -> str:
     )
 
 
-async def upload_file(barcode: str, filename: str, content: bytes, content_type: str) -> str:
-    from uuid import uuid4
-    import os
-    extension = os.path.splitext(filename)[1] or ".jpg"
-    s3_key = f"products/{barcode}/{uuid4()}{extension}"
+async def upload_file(barcode: str, filename: str, content: bytes, content_type: str, s3_key: str = None) -> str:
+    if not s3_key:
+        extension = os.path.splitext(filename)[1] or ".bin"
+        s3_key = f"products/{barcode}/{uuid4()}{extension}"
 
     try:
         s3_client.upload_fileobj(

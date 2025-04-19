@@ -36,6 +36,7 @@ export default function ViewProduct() {
         )}
         <View style={styles.productInfo}>
           <Text style={styles.productName}>{parsedProduct.product_name}</Text>
+          <Text style={styles.productDescription}>{parsedProduct.product_description}</Text>
           <Text style={styles.productBrand}>{parsedProduct.brand}</Text>
           <Text style={styles.barcodeText}>Barcode: {parsedProduct.barcode}</Text>
         </View>
@@ -116,6 +117,11 @@ const styles = StyleSheet.create({
     fontSize: theme.fonts.subheading,
     fontWeight: '600',
     color: theme.colors.text,
+    marginBottom: 4,
+  },
+  productDescription: {
+    fontSize: theme.fonts.text,
+    color: theme.colors.textSecondary || '#666',
     marginBottom: 4,
   },
   productBrand: {
